@@ -17,6 +17,7 @@ from bashi.types import ParameterValuePair
 from bashi.globals import *  # pylint: disable=wildcard-import,unused-wildcard-import
 from bashi.version.relation import VersionRelation
 from bashi.version.dependencies.base_version_support import CompilerCxxSupport
+from bashi.version.dependencies.clang_cuda import ClangCudaSDKSupport
 from utils_test import (
     parse_expected_val_pairs,
     default_remove_test,
@@ -300,9 +301,13 @@ class TestCompilerCXXSupportResultFilter(unittest.TestCase):
 
     def test_remove_unsupported_cxx_versions_for_cuda(self):
         version_relation = VersionRelation()
-        lasts_supported_version = sorted(
-            version_relation.get_max_cuda_sdk_cxx_support(), reverse=True
-        )[0]
+        # the latest C++ standard supported by a Clang-CUDA version and the latest CUDA SDK
+        # supported by any Clang-CUDA version
+        last_supported_cxx = max(version_relation.get_max_cuda_sdk_cxx_support()).cxx
+        last_supported_cuda = max(
+            clang_cuda_sdk.cuda
+            for clang_cuda_sdk in version_relation.get_clang_cuda_max_cuda_version()
+        )
         test_param_value_pairs: List[ParameterValuePair] = parse_expected_val_pairs(
             [
                 ((HOST_COMPILER, CLANG, 9), (CXX_STANDARD, 14)),
@@ -325,11 +330,8 @@ class TestCompilerCXXSupportResultFilter(unittest.TestCase):
                 ((ALPAKA_ACC_GPU_CUDA_ENABLE, 12.0), (CXX_STANDARD, 23)),
                 ((ALPAKA_ACC_GPU_CUDA_ENABLE, 12.1), (CXX_STANDARD, 23)),
                 (
-                    (
-                        ALPAKA_ACC_GPU_CUDA_ENABLE,
-                        float(str(lasts_supported_version.compiler)) + 0.1,
-                    ),
-                    (CXX_STANDARD, str(lasts_supported_version.cxx)),
+                    (ALPAKA_ACC_GPU_CUDA_ENABLE, float(str(last_supported_cuda)) + 0.1),
+                    (CXX_STANDARD, str(last_supported_cxx)),
                 ),
                 ((ALPAKA_ACC_GPU_CUDA_ENABLE, 9999.1), (CXX_STANDARD, 99)),
             ]
@@ -368,6 +370,47 @@ class TestCompilerCXXSupportResultFilter(unittest.TestCase):
                 output += f"  {str(v)}\n"
             e.add_note(output)
             raise (e)
+
+    def test_remove_unsupported_cxx_versions_for_cuda_newer_clang_cuda(self):
+        # C++23 is supported since Clang-CUDA 17, but Clang-CUDA 18 and 19 support newer CUDA SDKs
+        # than Clang-CUDA 17, so the upper CUDA SDK bound for C++23 is defined by Clang-CUDA 19
+        version_relation = VersionRelation(
+            clang_cuda_max_cuda_version=[
+                ClangCudaSDKSupport("14", "11.5"),
+                ClangCudaSDKSupport("16", "11.8"),
+                ClangCudaSDKSupport("17", "12.1"),
+                ClangCudaSDKSupport("18", "12.3"),
+                ClangCudaSDKSupport("19", "12.5"),
+            ]
+        )
+        test_param_value_pairs: List[ParameterValuePair] = parse_expected_val_pairs(
+            [
+                ((ALPAKA_ACC_GPU_CUDA_ENABLE, 11.8), (CXX_STANDARD, 23)),
+                ((ALPAKA_ACC_GPU_CUDA_ENABLE, 12.1), (CXX_STANDARD, 23)),
+                ((ALPAKA_ACC_GPU_CUDA_ENABLE, 12.2), (CXX_STANDARD, 23)),
+                ((ALPAKA_ACC_GPU_CUDA_ENABLE, 12.3), (CXX_STANDARD, 23)),
+                ((ALPAKA_ACC_GPU_CUDA_ENABLE, 12.5), (CXX_STANDARD, 23)),
+                ((ALPAKA_ACC_GPU_CUDA_ENABLE, 12.6), (CXX_STANDARD, 20)),
+                ((ALPAKA_ACC_GPU_CUDA_ENABLE, 12.6), (CXX_STANDARD, 23)),
+            ]
+        )
+        expected_results: List[ParameterValuePair] = parse_expected_val_pairs(
+            [
+                ((ALPAKA_ACC_GPU_CUDA_ENABLE, 12.1), (CXX_STANDARD, 23)),
+                ((ALPAKA_ACC_GPU_CUDA_ENABLE, 12.2), (CXX_STANDARD, 23)),
+                ((ALPAKA_ACC_GPU_CUDA_ENABLE, 12.3), (CXX_STANDARD, 23)),
+                ((ALPAKA_ACC_GPU_CUDA_ENABLE, 12.5), (CXX_STANDARD, 23)),
+                ((ALPAKA_ACC_GPU_CUDA_ENABLE, 12.6), (CXX_STANDARD, 20)),
+            ]
+        )
+
+        default_remove_test(
+            _remove_unsupported_cxx_versions_for_cuda,
+            test_param_value_pairs,
+            expected_results,
+            self,
+            version_relation=version_relation,
+        )
 
     def test_remove_unsupported_cxx_versions_for_icpx(self):
         test_param_value_pairs: List[ParameterValuePair] = parse_expected_val_pairs(

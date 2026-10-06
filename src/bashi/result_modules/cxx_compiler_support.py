@@ -213,10 +213,14 @@ def _remove_unsupported_cxx_versions_for_cuda(
     cxx_bounds: Dict[str, CUDASdkRange] = {}
 
     max_cuda_sdk_cxx_support_sorted = sorted(version_relation.get_max_cuda_sdk_cxx_support())
-    # because a Clang-CUDA version supports the latest CUDA SDK automatically, a upper bound is set
+    # a C++ standard supported by a Clang-CUDA version is also supported by all newer Clang-CUDA
+    # versions, so the upper bound is the latest CUDA SDK supported by any Clang-CUDA version
+    max_clang_cuda_sdk_version = max(
+        clang_cuda_sdk.cuda for clang_cuda_sdk in version_relation.get_clang_cuda_max_cuda_version()
+    )
     for max_clang_cuda_sdk in max_cuda_sdk_cxx_support_sorted:
         cxx_bounds[str(max_clang_cuda_sdk.cxx)] = CUDASdkRange(
-            str(max_clang_cuda_sdk.compiler), str(max_cuda_sdk_cxx_support_sorted[-1].compiler)
+            str(max_clang_cuda_sdk.compiler), str(max_clang_cuda_sdk_version)
         )
 
     for max_nvcc_sdk_support in version_relation.get_nvcc_cxx_support_version():
