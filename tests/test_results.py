@@ -47,7 +47,9 @@ from bashi.result_modules.cuda_support import (
     _remove_specific_cuda_clang_combinations,
     _remove_unsupported_clang_sdk_versions_for_clang_cuda,
     _remove_unsupported_cmake_versions_for_clangcuda,
+    _remove_runtime_unsupported_clang_cuda_cuda_13_combinations,
 )
+from bashi.runtime_info import AvailableCMakeForClangCudaCuda13
 from bashi.result_modules.hip_support import (
     _remove_unsupported_compiler_for_hip_backend,
     _remove_disabled_hip_backend_for_hipcc,
@@ -1664,4 +1666,46 @@ class TestExpectedBashiParameterValuesPairsNvccCudaBackend(unittest.TestCase):
             test_param_value_pairs,
             expected_results,
             create_diff_parameter_value_pairs(test_param_value_pairs, expected_results),
+        )
+
+    def test_remove_runtime_unsupported_clang_cuda_cuda_13_combinations(self):
+        test_param_value_pairs: List[ParameterValuePair] = parse_expected_val_pairs(
+            [
+                ((HOST_COMPILER, CLANG_CUDA, 23), (ALPAKA_ACC_GPU_CUDA_ENABLE, 12.9)),
+                ((HOST_COMPILER, CLANG_CUDA, 23), (ALPAKA_ACC_GPU_CUDA_ENABLE, 13.0)),
+                ((DEVICE_COMPILER, CLANG_CUDA, 23), (ALPAKA_ACC_GPU_CUDA_ENABLE, 13.2)),
+                ((DEVICE_COMPILER, CLANG_CUDA, 23), (CMAKE, "3.25")),
+                ((DEVICE_COMPILER, NVCC, 13.0), (ALPAKA_ACC_GPU_CUDA_ENABLE, 13.0)),
+                ((ALPAKA_ACC_GPU_CUDA_ENABLE, 13.0), (CMAKE, "3.25")),
+            ]
+        )
+        # there is a CMake version which supports Clang-CUDA with CUDA 13: nothing is removed
+        expected_results = copy.deepcopy(test_param_value_pairs)
+        default_remove_test(
+            _remove_runtime_unsupported_clang_cuda_cuda_13_combinations,
+            test_param_value_pairs,
+            expected_results,
+            self,
+            runtime_infos={
+                RT_AVAILABLE_CMAKE_FOR_CLANG_CUDA_CUDA_13: AvailableCMakeForClangCudaCuda13(True)
+            },
+        )
+
+        # there is no CMake version which supports Clang-CUDA with CUDA 13
+        expected_results = parse_expected_val_pairs(
+            [
+                ((HOST_COMPILER, CLANG_CUDA, 23), (ALPAKA_ACC_GPU_CUDA_ENABLE, 12.9)),
+                ((DEVICE_COMPILER, CLANG_CUDA, 23), (CMAKE, "3.25")),
+                ((DEVICE_COMPILER, NVCC, 13.0), (ALPAKA_ACC_GPU_CUDA_ENABLE, 13.0)),
+                ((ALPAKA_ACC_GPU_CUDA_ENABLE, 13.0), (CMAKE, "3.25")),
+            ]
+        )
+        default_remove_test(
+            _remove_runtime_unsupported_clang_cuda_cuda_13_combinations,
+            test_param_value_pairs,
+            expected_results,
+            self,
+            runtime_infos={
+                RT_AVAILABLE_CMAKE_FOR_CLANG_CUDA_CUDA_13: AvailableCMakeForClangCudaCuda13(False)
+            },
         )

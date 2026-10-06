@@ -3,6 +3,7 @@ import unittest
 import io
 
 from typing import Dict, Callable
+import packaging.version as pkv
 from utils_test import parse_param_val as ppv
 from utils_test import parse_value_version
 from bashi.globals import *  # pylint: disable=wildcard-import,unused-wildcard-import
@@ -10,7 +11,11 @@ from bashi.filter_software_dependency import (
     software_dependency_filter_typechecked,
     SoftwareDependencyFilter,
 )
-from bashi.runtime_info import ValidUbuntuSDK
+from bashi.runtime_info import (
+    ValidUbuntuSDK,
+    AvailableCMakeForClangCudaCuda13,
+    get_cmake_for_clang_cuda_cuda_13,
+)
 from bashi.version.dependencies.ubuntu import CUDA_MIN_UBUNTU
 from bashi.version.relation import VersionRelation
 from bashi.row import BashiRow
@@ -234,6 +239,191 @@ class TestOldGCCVersionInUbuntu2004(unittest.TestCase):
                 reason_msg.getvalue(),
                 f"device compiler CLANG_CUDA is not available in CMAKE {cmake_version}",
             )
+
+
+class TestClangCUDACUDA13CMake(unittest.TestCase):
+    def setUp(self):
+        self.version_relation = VersionRelation()
+
+    def test_valid_cmake_versions_for_clang_cuda_with_cuda_13_d12(self):
+        for compiler_type in (HOST_COMPILER, DEVICE_COMPILER):
+            for row in [
+                # CUDA 12 works with all CMake versions
+                {
+                    compiler_type: ppv((CLANG_CUDA, 23)),
+                    ALPAKA_ACC_GPU_CUDA_ENABLE: ppv((ALPAKA_ACC_GPU_CUDA_ENABLE, 12.9)),
+                    CMAKE: ppv((CMAKE, "3.25")),
+                },
+                # CUDA 13 requires CMake 3.31.8, or 4.0.3 and newer
+                {
+                    compiler_type: ppv((CLANG_CUDA, 23)),
+                    ALPAKA_ACC_GPU_CUDA_ENABLE: ppv((ALPAKA_ACC_GPU_CUDA_ENABLE, 13.0)),
+                    CMAKE: ppv((CMAKE, "3.31.8")),
+                },
+                {
+                    compiler_type: ppv((CLANG_CUDA, 23)),
+                    ALPAKA_ACC_GPU_CUDA_ENABLE: ppv((ALPAKA_ACC_GPU_CUDA_ENABLE, 13.2)),
+                    CMAKE: ppv((CMAKE, "4.0.3")),
+                },
+                {
+                    compiler_type: ppv((CLANG_CUDA, 23)),
+                    ALPAKA_ACC_GPU_CUDA_ENABLE: ppv((ALPAKA_ACC_GPU_CUDA_ENABLE, 13.2)),
+                    CMAKE: ppv((CMAKE, "4.1")),
+                },
+                # the CUDA backend is disabled
+                {
+                    compiler_type: ppv((CLANG_CUDA, 23)),
+                    ALPAKA_ACC_GPU_CUDA_ENABLE: ppv((ALPAKA_ACC_GPU_CUDA_ENABLE, OFF)),
+                    CMAKE: ppv((CMAKE, "3.25")),
+                },
+                # incomplete rows
+                {compiler_type: ppv((CLANG_CUDA, 23)), CMAKE: ppv((CMAKE, "3.25"))},
+                {
+                    compiler_type: ppv((CLANG_CUDA, 23)),
+                    ALPAKA_ACC_GPU_CUDA_ENABLE: ppv((ALPAKA_ACC_GPU_CUDA_ENABLE, 13.0)),
+                },
+            ]:
+                self.assertTrue(
+                    software_dependency_filter_typechecked(BashiRow(row), self.version_relation),
+                    f"{row}",
+                )
+
+        # nvcc is not affected
+        row = {
+            DEVICE_COMPILER: ppv((NVCC, 13.2)),
+            ALPAKA_ACC_GPU_CUDA_ENABLE: ppv((ALPAKA_ACC_GPU_CUDA_ENABLE, 13.2)),
+            CMAKE: ppv((CMAKE, "3.25")),
+        }
+        self.assertTrue(
+            software_dependency_filter_typechecked(BashiRow(row), self.version_relation),
+            f"{row}",
+        )
+
+    def test_not_valid_cmake_versions_for_clang_cuda_with_cuda_13_d12(self):
+        for compiler_type, compiler_name in (
+            (HOST_COMPILER, "host compiler"),
+            (DEVICE_COMPILER, "device compiler"),
+        ):
+            for cuda_version, cmake_version in [
+                (13.0, "3.26"),
+                (13.2, "3.30"),
+                (13.2, "3.31.7"),
+                (13.1, "4.0"),
+                (13.1, "4.0.2"),
+            ]:
+                reason_msg = io.StringIO()
+                self.assertFalse(
+                    software_dependency_filter_typechecked(
+                        BashiRow(
+                            {
+                                compiler_type: ppv((CLANG_CUDA, 23)),
+                                ALPAKA_ACC_GPU_CUDA_ENABLE: ppv(
+                                    (ALPAKA_ACC_GPU_CUDA_ENABLE, cuda_version)
+                                ),
+                                CMAKE: ppv((CMAKE, cmake_version)),
+                            }
+                        ),
+                        self.version_relation,
+                        reason_msg,
+                    ),
+                    f"{compiler_name} CLANG_CUDA + CUDA {cuda_version} + CMAKE {cmake_version}",
+                )
+                self.assertEqual(
+                    reason_msg.getvalue(),
+                    f"{compiler_name} CLANG_CUDA with CUDA {cuda_version} is not available in "
+                    f"CMAKE {cmake_version}, CMAKE 3.31.8 or 4.0.3 and newer is required",
+                )
+
+
+class TestClangCUDACUDA13NoCMake(unittest.TestCase):
+    def setUp(self):
+        self.version_relation = VersionRelation()
+
+    def test_runtime_info_cmake_for_clang_cuda_cuda_13_d13(self):
+        for cmake_versions, expected in [
+            (["3.25", "3.30"], False),
+            (["3.31.7", "4.0.2"], False),
+            (["3.25", "3.31.8"], True),
+            (["4.0.3"], True),
+            (["4.1"], True),
+        ]:
+            self.assertEqual(
+                get_cmake_for_clang_cuda_cuda_13([pkv.parse(v) for v in cmake_versions])(),
+                expected,
+                f"{cmake_versions}",
+            )
+
+    def test_valid_clang_cuda_cuda_13_d13(self):
+        for available in (True, False):
+            runtime_infos: Dict[str, Callable[..., bool]] = {
+                RT_AVAILABLE_CMAKE_FOR_CLANG_CUDA_CUDA_13: AvailableCMakeForClangCudaCuda13(
+                    available
+                )
+            }
+            for compiler_type in (HOST_COMPILER, DEVICE_COMPILER):
+                row = {
+                    compiler_type: ppv((CLANG_CUDA, 23)),
+                    ALPAKA_ACC_GPU_CUDA_ENABLE: ppv((ALPAKA_ACC_GPU_CUDA_ENABLE, 12.9)),
+                }
+                self.assertTrue(
+                    SoftwareDependencyFilter(self.version_relation, runtime_infos)(BashiRow(row)),
+                    f"{row} {available}",
+                )
+
+        # a CMake version which can identify Clang-CUDA with CUDA 13 is available
+        runtime_infos = {
+            RT_AVAILABLE_CMAKE_FOR_CLANG_CUDA_CUDA_13: AvailableCMakeForClangCudaCuda13(True)
+        }
+        row = {
+            DEVICE_COMPILER: ppv((CLANG_CUDA, 23)),
+            ALPAKA_ACC_GPU_CUDA_ENABLE: ppv((ALPAKA_ACC_GPU_CUDA_ENABLE, 13.0)),
+        }
+        self.assertTrue(
+            SoftwareDependencyFilter(self.version_relation, runtime_infos)(BashiRow(row)),
+            f"{row}",
+        )
+
+        # nvcc is not affected
+        runtime_infos = {
+            RT_AVAILABLE_CMAKE_FOR_CLANG_CUDA_CUDA_13: AvailableCMakeForClangCudaCuda13(False)
+        }
+        row = {
+            DEVICE_COMPILER: ppv((NVCC, 13.0)),
+            ALPAKA_ACC_GPU_CUDA_ENABLE: ppv((ALPAKA_ACC_GPU_CUDA_ENABLE, 13.0)),
+        }
+        self.assertTrue(
+            SoftwareDependencyFilter(self.version_relation, runtime_infos)(BashiRow(row)),
+            f"{row}",
+        )
+
+    def test_not_valid_clang_cuda_cuda_13_d13(self):
+        runtime_infos: Dict[str, Callable[..., bool]] = {
+            RT_AVAILABLE_CMAKE_FOR_CLANG_CUDA_CUDA_13: AvailableCMakeForClangCudaCuda13(False)
+        }
+        for compiler_type, compiler_name in (
+            (HOST_COMPILER, "host compiler"),
+            (DEVICE_COMPILER, "device compiler"),
+        ):
+            for cuda_version in (13.0, 13.2):
+                reason_msg = io.StringIO()
+                self.assertFalse(
+                    SoftwareDependencyFilter(self.version_relation, runtime_infos, reason_msg)(
+                        BashiRow(
+                            {
+                                compiler_type: ppv((CLANG_CUDA, 23)),
+                                ALPAKA_ACC_GPU_CUDA_ENABLE: ppv(
+                                    (ALPAKA_ACC_GPU_CUDA_ENABLE, cuda_version)
+                                ),
+                            }
+                        )
+                    ),
+                    f"{compiler_name} CLANG_CUDA + CUDA {cuda_version}",
+                )
+                self.assertEqual(
+                    reason_msg.getvalue(),
+                    f"{compiler_name} CLANG_CUDA with CUDA {cuda_version} requires CMAKE 3.31.8 "
+                    "or 4.0.3 and newer, which is not in the input parameter-value-matrix",
+                )
 
 
 class TestHIPUbuntu(unittest.TestCase):

@@ -2,6 +2,7 @@
 parameter-value-matrix"""
 
 from typing import List, Dict
+import packaging.version as pkv
 from packaging.specifiers import SpecifierSet
 from packaging.version import Version
 from bashi.version.dependencies.ubuntu import UbuntuSDKMinMax
@@ -80,3 +81,49 @@ def get_sdk_supporting_ubuntus(
                 valid_ubuntus[ub_ver] = False
 
     return ValidUbuntuSDK([ub for ub, valid in valid_ubuntus.items() if valid])
+
+
+def cmake_supports_clang_cuda_with_cuda_13(cmake_version: ValueVersion) -> bool:
+    """CMake 3.31.7 and older, and CMake 4.0.0 - 4.0.2, cannot identify Clang-CUDA as CUDA compiler
+    with CUDA 13 and newer: the compiler identification compiles a test program for the sm_52, sm_30
+    and sm_20 architectures, which are no longer supported by CUDA 13. Newer versions of CMake try
+    sm_75 first, see https://gitlab.kitware.com/cmake/cmake/-/commit/b62f3257
+
+    Args:
+        cmake_version (ValueVersion): CMake version
+
+    Returns:
+        bool: True if the CMake version can identify Clang-CUDA with CUDA 13 and newer.
+    """
+    return not (
+        cmake_version < pkv.parse("3.31.8")
+        or pkv.parse("4.0") <= cmake_version < pkv.parse("4.0.3")
+    )
+
+
+# pylint: disable=too-few-public-methods
+class AvailableCMakeForClangCudaCuda13:
+    """Stores if the parameter-value-matrix contains a CMake version, which can identify Clang-CUDA
+    as CUDA compiler with CUDA 13 and newer."""
+
+    def __init__(self, available: bool):
+        self.available = available
+
+    def __call__(self) -> bool:
+        return self.available
+
+
+def get_cmake_for_clang_cuda_cuda_13(cmake_versions: List[ValueVersion]):
+    """Check if at least one of the given CMake versions can identify Clang-CUDA as CUDA compiler
+    with CUDA 13 and newer.
+
+    Args:
+        cmake_versions (List[ValueVersion]): CMake versions of the parameter-value-matrix
+
+    Returns:
+        AvailableCMakeForClangCudaCuda13: A functor which returns True if such a CMake version
+            exists.
+    """
+    return AvailableCMakeForClangCudaCuda13(
+        any(cmake_supports_clang_cuda_with_cuda_13(cmake) for cmake in cmake_versions)
+    )

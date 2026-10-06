@@ -74,6 +74,9 @@ def remove_cuda_specific_parameter_value_pairs(
     _remove_runtime_unsupported_clang_cuda_ubuntu_combinations(
         parameter_value_pairs, removed_parameter_value_pairs, runtime_infos
     )
+    _remove_runtime_unsupported_clang_cuda_cuda_13_combinations(
+        parameter_value_pairs, removed_parameter_value_pairs, runtime_infos
+    )
 
 
 def _remove_nvcc_host_compiler(
@@ -638,3 +641,38 @@ def _remove_runtime_unsupported_clang_cuda_ubuntu_combinations(
             tmp_parameter_value_pairs.append(param_val)
 
     parameter_value_pairs[:] = tmp_parameter_value_pairs
+
+
+def _remove_runtime_unsupported_clang_cuda_cuda_13_combinations(
+    parameter_value_pairs: List[ParameterValuePair],
+    removed_parameter_value_pairs: List[ParameterValuePair],
+    runtime_infos: Dict[str, Callable[..., bool]],
+):
+    """Remove all Clang-CUDA and CUDA backend 13 and newer pairs, if the input
+    parameter-value-matrix contains no CMake version, which can identify Clang-CUDA as CUDA compiler
+    with CUDA 13 and newer.
+
+    Args:
+        parameter_value_pairs (List[ParameterValuePair]): List of parameter-value pairs.
+        removed_parameter_value_pairs (List[ParameterValuePair): list with removed
+            parameter-value-pairs
+        runtime_infos: Dict[str, Callable[..., bool]]: Dict of functors which checks if the given
+        parameter-values (combinations) are valid. This filter uses the functor
+            RT_AVAILABLE_CMAKE_FOR_CLANG_CUDA_CUDA_13.
+    """
+    if (
+        RT_AVAILABLE_CMAKE_FOR_CLANG_CUDA_CUDA_13 not in runtime_infos
+        or runtime_infos[RT_AVAILABLE_CMAKE_FOR_CLANG_CUDA_CUDA_13]()
+    ):
+        return
+
+    for compiler_type in (HOST_COMPILER, DEVICE_COMPILER):
+        remove_parameter_value_pairs_ranges(
+            parameter_value_pairs,
+            removed_parameter_value_pairs,
+            parameter1=compiler_type,
+            value_name1=CLANG_CUDA,
+            parameter2=ALPAKA_ACC_GPU_CUDA_ENABLE,
+            value_name2=ALPAKA_ACC_GPU_CUDA_ENABLE,
+            value_min_version2="13.0",
+        )

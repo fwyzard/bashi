@@ -15,6 +15,7 @@ from bashi.filter_base import FilterBase
 from bashi.version.relation import VersionRelation
 from bashi.printer import ubuntu_version_to_string
 from bashi.row import BashiRow
+from bashi.runtime_info import cmake_supports_clang_cuda_with_cuda_13
 
 
 def _pretty_name_compiler(constant: str) -> str:
@@ -85,6 +86,43 @@ class SoftwareDependencyFilter(FilterBase):
                         f"{_pretty_name_compiler(compiler_type)} CLANG_CUDA "
                         "is not available in CMAKE "
                         f"{row[CMAKE].version}",
+                    )
+                    return False
+
+        # Rule: d12
+        # CMake 3.31.7 and older, and CMake 4.0.0 - 4.0.2, cannot identify Clang-CUDA as CUDA
+        # compiler with CUDA 13 and newer, see cmake_supports_clang_cuda_with_cuda_13()
+
+        if (
+            row[ALPAKA_ACC_GPU_CUDA_ENABLE].version >= pkv.parse("13.0")
+            and CMAKE in row
+            and not cmake_supports_clang_cuda_with_cuda_13(cast(ValueVersion, row[CMAKE].version))
+        ):
+            for compiler_type in (HOST_COMPILER, DEVICE_COMPILER):
+                if row[compiler_type].name == CLANG_CUDA:
+                    self.reason(
+                        f"{_pretty_name_compiler(compiler_type)} CLANG_CUDA with CUDA "
+                        f"{row[ALPAKA_ACC_GPU_CUDA_ENABLE].version} is not available in CMAKE "
+                        f"{row[CMAKE].version}, CMAKE 3.31.8 or 4.0.3 and newer is required",
+                    )
+                    return False
+
+        # Rule: d13
+        # related to rule d12: if the parameter-value-matrix contains no CMake version, which can
+        # identify Clang-CUDA with CUDA 13 and newer, Clang-CUDA cannot be used with CUDA 13 and
+        # newer
+
+        if (
+            row[ALPAKA_ACC_GPU_CUDA_ENABLE].version >= pkv.parse("13.0")
+            and RT_AVAILABLE_CMAKE_FOR_CLANG_CUDA_CUDA_13 in self.runtime_infos
+            and not self.runtime_infos[RT_AVAILABLE_CMAKE_FOR_CLANG_CUDA_CUDA_13]()
+        ):
+            for compiler_type in (HOST_COMPILER, DEVICE_COMPILER):
+                if row[compiler_type].name == CLANG_CUDA:
+                    self.reason(
+                        f"{_pretty_name_compiler(compiler_type)} CLANG_CUDA with CUDA "
+                        f"{row[ALPAKA_ACC_GPU_CUDA_ENABLE].version} requires CMAKE 3.31.8 or "
+                        "4.0.3 and newer, which is not in the input parameter-value-matrix",
                     )
                     return False
 

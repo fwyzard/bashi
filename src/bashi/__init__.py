@@ -54,6 +54,7 @@ from bashi.globals import (
     PARAMETERS,
     RT_AVAILABLE_HIP_SDK_UBUNTU_VER,
     RT_AVAILABLE_CUDA_SDK_UBUNTU_VER,
+    RT_AVAILABLE_CMAKE_FOR_CLANG_CUDA_CUDA_13,
     FilterDebugMode,
 )
 from bashi.version.utils import get_parameter_value_matrix
@@ -137,6 +138,7 @@ __all__ = [
     "PARAMETERS",
     "RT_AVAILABLE_HIP_SDK_UBUNTU_VER",
     "RT_AVAILABLE_CUDA_SDK_UBUNTU_VER",
+    "RT_AVAILABLE_CMAKE_FOR_CLANG_CUDA_CUDA_13",
     "get_parameter_value_matrix",
     "VersionRelation",
     "get_runtime_infos",
