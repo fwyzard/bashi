@@ -330,7 +330,7 @@ class TestCompilerCXXSupportResultFilter(unittest.TestCase):
                 ((ALPAKA_ACC_GPU_CUDA_ENABLE, 12.0), (CXX_STANDARD, 23)),
                 ((ALPAKA_ACC_GPU_CUDA_ENABLE, 12.1), (CXX_STANDARD, 23)),
                 (
-                    (ALPAKA_ACC_GPU_CUDA_ENABLE, float(str(last_supported_cuda)) + 0.1),
+                    (ALPAKA_ACC_GPU_CUDA_ENABLE, round(float(str(last_supported_cuda)) + 0.1, 1)),
                     (CXX_STANDARD, str(last_supported_cxx)),
                 ),
                 ((ALPAKA_ACC_GPU_CUDA_ENABLE, 9999.1), (CXX_STANDARD, 99)),

@@ -863,7 +863,13 @@ class TestCompilerCXXSupportFilterRules(unittest.TestCase):
             compiler_filter_typechecked(valid_row, self.version_relation), f"{valid_row}"
         )
 
-        invalid_cuda_sdk_version = float(str(max_clang_cuda_support_cxx.compiler)) + 0.1
+        # the latest C++ standard is only supported by Clang-CUDA, therefore the latest CUDA SDK
+        # supported by any Clang-CUDA version is the upper bound
+        max_clang_cuda_sdk = max(
+            clang_cuda_sdk.cuda
+            for clang_cuda_sdk in version_relation.get_clang_cuda_max_cuda_version()
+        )
+        invalid_cuda_sdk_version = round(float(str(max_clang_cuda_sdk)) + 0.1, 1)
         invalid_row = BashiRow(
             {
                 ALPAKA_ACC_GPU_CUDA_ENABLE: ppv(

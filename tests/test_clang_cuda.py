@@ -50,7 +50,7 @@ class TestClangCUDACompilerFilter(unittest.TestCase):
     def test_clang_cuda_supported_cuda_backends_c16(self):
         self.assertEqual(
             CLANG_CUDA_MAX_CUDA_VERSION[0].clang_cuda,
-            pkv.parse("17"),
+            pkv.parse("23"),
             "Modify this test, if a new supported Clang-CUDA version is added. Afterwards change "
             "the last supported version of this assert.",
         )
@@ -67,6 +67,18 @@ class TestClangCUDACompilerFilter(unittest.TestCase):
             (16, 12.0, False),
             (17, 12.1, True),
             (17, 12.2, False),
+            (18, 12.3, True),
+            (18, 12.4, False),
+            (19, 12.5, True),
+            (19, 12.6, False),
+            (20, 12.8, True),
+            (20, 12.9, False),
+            (21, 12.8, True),
+            (21, 12.9, False),
+            (22, 12.9, True),
+            (22, 13.0, False),
+            (23, 13.2, True),
+            (23, 13.3, False),
         ]
 
         for compiler_type in (HOST_COMPILER, DEVICE_COMPILER):
@@ -106,7 +118,15 @@ class TestClangCUDACompilerFilter(unittest.TestCase):
         unsupported_new_clang_cuda_version = sorted(VERSIONS[CLANG_CUDA])[-1]
         # only verify the following calculation
         self.assertIsInstance(unsupported_new_clang_cuda_version, int)
-        unsupported_new_clang_cuda_version = int(unsupported_new_clang_cuda_version) + 1
+        # the Clang-CUDA version must be newer than the latest Clang-CUDA version of VERSIONS and
+        # of CLANG_CUDA_MAX_CUDA_VERSION
+        unsupported_new_clang_cuda_version = (
+            max(
+                int(unsupported_new_clang_cuda_version),
+                CLANG_CUDA_MAX_CUDA_VERSION[0].clang_cuda.major,
+            )
+            + 1
+        )
 
         unsupported_new_cuda_sdk_version = sorted(VERSIONS[NVCC])[-1]
         # only verify the following calculation
@@ -268,7 +288,7 @@ class TestClangCUDABackendFilter(unittest.TestCase):
     def test_cuda_backend_supported_clang_cuda_version_b17(self):
         self.assertEqual(
             CLANG_CUDA_MAX_CUDA_VERSION[0].clang_cuda,
-            pkv.parse("17"),
+            pkv.parse("23"),
             "Modify this test, if a new supported Clang-CUDA version is added. Afterwards change "
             "the last supported version of this assert.",
         )
@@ -285,6 +305,18 @@ class TestClangCUDABackendFilter(unittest.TestCase):
             (16, 12.0, False),
             (17, 12.1, True),
             (17, 12.2, False),
+            (18, 12.3, True),
+            (18, 12.4, False),
+            (19, 12.5, True),
+            (19, 12.6, False),
+            (20, 12.8, True),
+            (20, 12.9, False),
+            (21, 12.8, True),
+            (21, 12.9, False),
+            (22, 12.9, True),
+            (22, 13.0, False),
+            (23, 13.2, True),
+            (23, 13.3, False),
         ]
 
         for compiler_type in (HOST_COMPILER, DEVICE_COMPILER):
@@ -323,7 +355,15 @@ class TestClangCUDABackendFilter(unittest.TestCase):
         unsupported_new_clang_cuda_version = sorted(VERSIONS[CLANG_CUDA])[-1]
         # only verify the following calculation
         self.assertIsInstance(unsupported_new_clang_cuda_version, int)
-        unsupported_new_clang_cuda_version = int(unsupported_new_clang_cuda_version) + 1
+        # the Clang-CUDA version must be newer than the latest Clang-CUDA version of VERSIONS and
+        # of CLANG_CUDA_MAX_CUDA_VERSION
+        unsupported_new_clang_cuda_version = (
+            max(
+                int(unsupported_new_clang_cuda_version),
+                CLANG_CUDA_MAX_CUDA_VERSION[0].clang_cuda.major,
+            )
+            + 1
+        )
 
         unsupported_new_cuda_sdk_version = sorted(VERSIONS[NVCC])[-1]
         # only verify the following calculation

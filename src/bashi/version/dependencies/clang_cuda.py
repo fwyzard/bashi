@@ -31,4 +31,9 @@ CLANG_CUDA_MAX_CUDA_VERSION: List[ClangCudaSDKSupport] = [
     ClangCudaSDKSupport("14", "11.5"),
     ClangCudaSDKSupport("16", "11.8"),
     ClangCudaSDKSupport("17", "12.1"),
+    ClangCudaSDKSupport("18", "12.3"),
+    ClangCudaSDKSupport("19", "12.5"),
+    ClangCudaSDKSupport("20", "12.8"),
+    ClangCudaSDKSupport("22", "12.9"),
+    ClangCudaSDKSupport("23", "13.2"),
 ]

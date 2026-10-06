@@ -1462,7 +1462,18 @@ class TestExpectedBashiParameterValuesPairsNvccCudaBackend(unittest.TestCase):
         unsupported_new_clang_cuda_version = sorted(VERSIONS[CLANG_CUDA])[-1]
         # only verify the following calculation
         self.assertIsInstance(unsupported_new_clang_cuda_version, int)
-        unsupported_new_clang_cuda_version = int(unsupported_new_clang_cuda_version) + 1
+        # the Clang-CUDA version must be newer than the latest Clang-CUDA version of VERSIONS and
+        # of CLANG_CUDA_MAX_CUDA_VERSION
+        unsupported_new_clang_cuda_version = (
+            max(
+                int(unsupported_new_clang_cuda_version),
+                max(
+                    supported_version.clang_cuda
+                    for supported_version in CLANG_CUDA_MAX_CUDA_VERSION
+                ).major,
+            )
+            + 1
+        )
 
         unsupported_new_cuda_sdk_version = sorted(VERSIONS[NVCC])[-1]
         # only verify the following calculation
@@ -1483,6 +1494,8 @@ class TestExpectedBashiParameterValuesPairsNvccCudaBackend(unittest.TestCase):
                 ((DEVICE_COMPILER, CLANG_CUDA, 12), (ALPAKA_ACC_GPU_CUDA_ENABLE, OFF)),
                 ((DEVICE_COMPILER, CLANG_CUDA, 17), (ALPAKA_ACC_GPU_CUDA_ENABLE, 12.1)),
                 ((DEVICE_COMPILER, CLANG_CUDA, 17), (ALPAKA_ACC_GPU_CUDA_ENABLE, 12.3)),
+                ((DEVICE_COMPILER, CLANG_CUDA, 20), (ALPAKA_ACC_GPU_CUDA_ENABLE, 12.8)),
+                ((DEVICE_COMPILER, CLANG_CUDA, 20), (ALPAKA_ACC_GPU_CUDA_ENABLE, 12.9)),
                 ((CMAKE, 3.23), (BOOST, 1.83)),
                 # clang-cuda 6 is not supported but clang-cuda 7 supports up to CUDA 9.2
                 # therefore there is a chance that clang-cuda 6 also supports CUDA 9.2
@@ -1528,6 +1541,7 @@ class TestExpectedBashiParameterValuesPairsNvccCudaBackend(unittest.TestCase):
                 ),
                 ((DEVICE_COMPILER, ICPX, "2022.3"), (ALPAKA_ACC_GPU_CUDA_ENABLE, 11.3)),
                 ((DEVICE_COMPILER, CLANG_CUDA, 17), (ALPAKA_ACC_GPU_CUDA_ENABLE, 12.1)),
+                ((DEVICE_COMPILER, CLANG_CUDA, 20), (ALPAKA_ACC_GPU_CUDA_ENABLE, 12.8)),
                 (
                     (DEVICE_COMPILER, CLANG_CUDA, unsupported_old_clang_cuda_version),
                     (ALPAKA_ACC_GPU_CUDA_ENABLE, 9.2),
