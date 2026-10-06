@@ -31,6 +31,7 @@ class NvccHostSupport(VersionSupportBase):
 #   NvccHostSupport("12.0", "12"),
 #   NvccHostSupport("11.4", "11"),
 NVCC_GCC_MAX_VERSION: List[NvccHostSupport] = [
+    NvccHostSupport("13.4", "16"),
     NvccHostSupport("13.0", "15"),
     NvccHostSupport("12.9", "14"),
     NvccHostSupport("12.6", "13"),
@@ -51,6 +52,8 @@ NVCC_GCC_MAX_VERSION: List[NvccHostSupport] = [
 #   NvccHostSupport("12.2", "15"),
 #   NvccHostSupport("12.1", "15"),
 NVCC_CLANG_MAX_VERSION: List[NvccHostSupport] = [
+    NvccHostSupport("13.4", "22"),
+    NvccHostSupport("13.1", "21"),
     NvccHostSupport("13.0", "20"),
     NvccHostSupport("12.9", "19"),
     NvccHostSupport("12.6", "18"),

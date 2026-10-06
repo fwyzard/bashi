@@ -21,4 +21,7 @@ HIPCC_CLANG_VERSION: List[ClangBase] = [
     ClangBase("7.0", "20"),
     ClangBase("7.1", "20"),
     ClangBase("7.2", "22"),
+    ClangBase("7.14", "23"),
+    ClangBase("10.0", "23"),
+    ClangBase("10.1", "24"),
 ]
