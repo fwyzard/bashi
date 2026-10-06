@@ -172,11 +172,24 @@ RemoveParameterValuePairsRuntimeFunctor: TypeAlias = Callable[
     [List[ParameterValuePair], List[ParameterValuePair], Dict[str, Callable[..., bool]]],
     None,
 ]
+RemoveParameterValuePairsVersionRuntimeFunctor: TypeAlias = Callable[
+    [
+        List[ParameterValuePair],
+        List[ParameterValuePair],
+        VersionRelation,
+        Dict[str, Callable[..., bool]],
+    ],
+    None,
+]
 
 
 @typechecked
 def default_remove_test(
-    function: RemoveParameterValuePairsFunctor | RemoveParameterValuePairsRuntimeFunctor,
+    function: (
+        RemoveParameterValuePairsFunctor
+        | RemoveParameterValuePairsRuntimeFunctor
+        | RemoveParameterValuePairsVersionRuntimeFunctor
+    ),
     test_parameter_value_pairs: List[ParameterValuePair],
     expected_results: List[ParameterValuePair],
     test_self: unittest.TestCase,

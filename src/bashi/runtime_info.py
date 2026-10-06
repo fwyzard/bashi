@@ -6,6 +6,8 @@ import packaging.version as pkv
 from packaging.specifiers import SpecifierSet
 from packaging.version import Version
 from bashi.version.dependencies.ubuntu import UbuntuSDKMinMax
+from bashi.version.dependencies.base_version_support import CompilerCxxSupport
+from bashi.version.dependencies.clang_cuda import ClangCudaSDKSupport
 from bashi.types import ValueVersion
 
 
@@ -126,4 +128,76 @@ def get_cmake_for_clang_cuda_cuda_13(cmake_versions: List[ValueVersion]):
     """
     return AvailableCMakeForClangCudaCuda13(
         any(cmake_supports_clang_cuda_with_cuda_13(cmake) for cmake in cmake_versions)
+    )
+
+
+# pylint: disable=too-few-public-methods
+class ValidClangCudaSDKCxx:
+    """Check if at least one of the given Clang-CUDA versions supports a given CUDA SDK version and
+    C++ standard."""
+
+    def __init__(
+        self,
+        clang_cuda_versions: List[ValueVersion],
+        clang_cuda_max_cuda_version: List[ClangCudaSDKSupport],
+        clang_cuda_cxx_support: List[CompilerCxxSupport],
+    ):
+        self.clang_cuda_versions = clang_cuda_versions
+        self.clang_cuda_max_cuda_version = sorted(clang_cuda_max_cuda_version, reverse=True)
+        self.clang_cuda_cxx_support = sorted(clang_cuda_cxx_support, reverse=True)
+
+    def _supports_cuda_sdk(self, clang_cuda_ver: Version, cuda_sdk_ver: Version) -> bool:
+        # same as the filter rules c16 and b17: a Clang-CUDA version newer than the latest known
+        # Clang-CUDA version supports every CUDA SDK version
+        if (
+            not self.clang_cuda_max_cuda_version
+            or clang_cuda_ver > self.clang_cuda_max_cuda_version[0].clang_cuda
+        ):
+            return True
+        for clang_cuda_sdk in self.clang_cuda_max_cuda_version:
+            if clang_cuda_ver >= clang_cuda_sdk.clang_cuda:
+                return cuda_sdk_ver <= clang_cuda_sdk.cuda
+        return True
+
+    def _supports_cxx(self, clang_cuda_ver: Version, cxx_ver: Version) -> bool:
+        # same as _remove_unsupported_compiler_cxx_combination() in the compiler filter
+        if not self.clang_cuda_cxx_support:
+            return True
+        for compiler_cxx in self.clang_cuda_cxx_support:
+            if clang_cuda_ver >= compiler_cxx.compiler:
+                return cxx_ver <= compiler_cxx.cxx
+        return cxx_ver < self.clang_cuda_cxx_support[-1].cxx
+
+    def __call__(self, cuda_sdk_ver: Version, cxx_ver: Version) -> bool:
+        return any(
+            self._supports_cuda_sdk(clang_cuda_ver, cuda_sdk_ver)
+            and self._supports_cxx(clang_cuda_ver, cxx_ver)
+            for clang_cuda_ver in self.clang_cuda_versions
+        )
+
+
+def get_clang_cuda_supporting_cuda_sdk_cxx(
+    clang_cuda_versions: List[ValueVersion],
+    clang_cuda_max_cuda_version: List[ClangCudaSDKSupport],
+    clang_cuda_cxx_support: List[CompilerCxxSupport],
+) -> ValidClangCudaSDKCxx:
+    """Creates a validator object, which checks if at least one of the given Clang-CUDA versions
+    supports a given CUDA SDK version and C++ standard. The Clang-CUDA versions are the versions in
+    the input parameter-value-matrix. If there is no Clang-CUDA version in the input
+    parameter-value-matrix, the validator returns always False.
+
+    Args:
+        clang_cuda_versions (List[ValueVersion]): List of Clang-CUDA versions.
+        clang_cuda_max_cuda_version (List[ClangCudaSDKSupport]): Latest CUDA SDK version supported
+            by a Clang-CUDA version.
+        clang_cuda_cxx_support (List[CompilerCxxSupport]): Latest C++ standard supported by a
+            Clang-CUDA version.
+
+    Returns:
+        ValidClangCudaSDKCxx: An validator object with a call operator, which takes a CUDA SDK
+            version and a C++ standard and returns True if at least one of the Clang-CUDA versions
+            supports both.
+    """
+    return ValidClangCudaSDKCxx(
+        clang_cuda_versions, clang_cuda_max_cuda_version, clang_cuda_cxx_support
     )

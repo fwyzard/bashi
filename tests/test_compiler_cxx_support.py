@@ -4,16 +4,19 @@ import unittest
 import io
 import packaging.version as pkv
 from utils_test import parse_param_val as ppv
+from utils_test import parse_value_version as pvv
 from bashi.globals import *  # pylint: disable=wildcard-import,unused-wildcard-import
 from bashi.version.dependencies.clang_cuda import ClangCudaSDKSupport
 from bashi.version.relation import VersionRelation, CompilerCxxSupport, ClangBase
 from bashi.filter_compiler import (
+    CompilerFilter,
     compiler_filter_typechecked,
     _get_max_supported_cxx_version_for_cuda_sdk_for_nvcc,
     _get_max_supported_cxx_version_for_cuda_sdk_for_clang_cuda,
     _get_max_supported_cxx_version_for_cuda_sdk,
 )
 from bashi.row import BashiRow
+from bashi.runtime_info import get_clang_cuda_supporting_cuda_sdk_cxx
 
 
 class TestGetMaximumSupportedCXXStandardForCUDASdk(unittest.TestCase):
@@ -883,6 +886,39 @@ class TestCompilerCXXSupportFilterRules(unittest.TestCase):
             f"CUDA {invalid_cuda_sdk_version} there is no "
             f"Clang-CUDA compiler which support this.",
         )
+
+    def test_cuda_sdk_cxx_support_of_clang_cuda_runtime_info_c27(self):
+        # C++23 is only supported by Clang-CUDA 17 and newer, which support CUDA 12.1 and older.
+        # If the parameter-value-matrix contains only Clang-CUDA 16, there is no compiler for
+        # CUDA 12.1 and C++23.
+        row = BashiRow(
+            {
+                ALPAKA_ACC_GPU_CUDA_ENABLE: ppv((ALPAKA_ACC_GPU_CUDA_ENABLE, "12.1")),
+                CXX_STANDARD: ppv((CXX_STANDARD, "23")),
+            }
+        )
+        version_relation = VersionRelation()
+
+        for clang_cuda_versions, expected in (([17], True), ([16], False), ([], False)):
+            runtime_infos = {
+                RT_AVAILABLE_CLANG_CUDA_SDK_CXX: get_clang_cuda_supporting_cuda_sdk_cxx(
+                    pvv(clang_cuda_versions),
+                    version_relation.get_clang_cuda_max_cuda_version(),
+                    version_relation.get_clang_cuda_cxx_support_version(),
+                )
+            }
+            reason_msg = io.StringIO()
+            self.assertEqual(
+                CompilerFilter(version_relation, runtime_infos, reason_msg)(row),
+                expected,
+                f"{row} with Clang-CUDA {clang_cuda_versions}",
+            )
+            if not expected:
+                self.assertEqual(
+                    reason_msg.getvalue(),
+                    "For the potential combination of C++-23 + CUDA 12.1 there is no Clang-CUDA "
+                    "compiler in the parameter-value-matrix which support this.",
+                )
 
 
 class TestClangBasedCompilerCXXSupport(unittest.TestCase):

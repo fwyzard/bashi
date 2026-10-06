@@ -84,6 +84,7 @@ PARAMETERS: List[Parameter] = [
 RT_AVAILABLE_HIP_SDK_UBUNTU_VER: str = "rt_available_hip_sdk_ubuntu_ver"
 RT_AVAILABLE_CUDA_SDK_UBUNTU_VER: str = "rt_available_cuda_sdk_ubuntu_ver"
 RT_AVAILABLE_CMAKE_FOR_CLANG_CUDA_CUDA_13: str = "rt_available_cmake_for_clang_cuda_cuda_13"
+RT_AVAILABLE_CLANG_CUDA_SDK_CXX: str = "rt_available_clang_cuda_sdk_cxx"
 
 
 class FilterDebugMode(Enum):

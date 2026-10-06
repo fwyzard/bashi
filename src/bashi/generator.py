@@ -15,7 +15,11 @@ from bashi.types import (
 from bashi.globals import *  # pylint: disable=wildcard-import,unused-wildcard-import
 from bashi.filter_base import FilterBase
 from bashi.filter_chain import get_default_filter_chain, FilterChain
-from bashi.runtime_info import get_sdk_supporting_ubuntus, get_cmake_for_clang_cuda_cuda_13
+from bashi.runtime_info import (
+    get_sdk_supporting_ubuntus,
+    get_cmake_for_clang_cuda_cuda_13,
+    get_clang_cuda_supporting_cuda_sdk_cxx,
+)
 from bashi.version.relation import VersionRelation
 
 
@@ -66,6 +70,20 @@ def get_runtime_infos(
     if CMAKE in parameter_value_matrix and len(parameter_value_matrix[CMAKE]) > 0:
         runtime_infos[RT_AVAILABLE_CMAKE_FOR_CLANG_CUDA_CUDA_13] = get_cmake_for_clang_cuda_cuda_13(
             [param_val.version for param_val in parameter_value_matrix[CMAKE]]
+        )
+
+    if DEVICE_COMPILER in parameter_value_matrix:
+        # the Clang-CUDA versions in the parameter-value-matrix define, which combinations of
+        # CUDA SDK and C++ standard are possible with Clang-CUDA
+        clang_cuda_versions: List[ValueVersion] = [
+            param_val.version
+            for param_val in parameter_value_matrix[DEVICE_COMPILER]
+            if param_val.name == CLANG_CUDA
+        ]
+        runtime_infos[RT_AVAILABLE_CLANG_CUDA_SDK_CXX] = get_clang_cuda_supporting_cuda_sdk_cxx(
+            clang_cuda_versions,
+            version_relation.get_clang_cuda_max_cuda_version(),
+            version_relation.get_clang_cuda_cxx_support_version(),
         )
 
     return runtime_infos

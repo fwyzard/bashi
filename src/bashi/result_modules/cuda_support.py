@@ -77,6 +77,9 @@ def remove_cuda_specific_parameter_value_pairs(
     _remove_runtime_unsupported_clang_cuda_cuda_13_combinations(
         parameter_value_pairs, removed_parameter_value_pairs, runtime_infos
     )
+    _remove_runtime_unsupported_cuda_backend_cxx_combinations(
+        parameter_value_pairs, removed_parameter_value_pairs, version_relation, runtime_infos
+    )
 
 
 def _remove_nvcc_host_compiler(
@@ -676,3 +679,59 @@ def _remove_runtime_unsupported_clang_cuda_cuda_13_combinations(
             value_name2=ALPAKA_ACC_GPU_CUDA_ENABLE,
             value_min_version2="13.0",
         )
+
+
+def _remove_runtime_unsupported_cuda_backend_cxx_combinations(
+    parameter_value_pairs: List[ParameterValuePair],
+    removed_parameter_value_pairs: List[ParameterValuePair],
+    version_relation: VersionRelation,
+    runtime_infos: Dict[str, Callable[..., bool]],
+):
+    """Remove all CUDA backend C++ standard pairs, which are not supported by Nvcc and by any
+    Clang-CUDA version of the input parameter-value-matrix.
+
+    For example C++23 is supported by Clang-CUDA 17 and newer, but not by Nvcc. CUDA 12.8 is
+    supported by Clang-CUDA 20 and newer. If the input parameter-value-matrix contains only
+    Clang-CUDA versions up to 19, the combination of CUDA 12.8 and C++23 is not possible.
+
+    Args:
+        parameter_value_pairs (List[ParameterValuePair]): List of parameter-value pairs.
+        removed_parameter_value_pairs (List[ParameterValuePair): list with removed
+            parameter-value-pairs
+        version_relation (VersionRelation): Provides information about the relationships between
+                the versions of various parameter-values. For example, which GCC version supports
+                which C++ standard.
+        runtime_infos: Dict[str, Callable[..., bool]]: Dict of functors which checks if the given
+        parameter-values (combinations) are valid. This filter uses the functor
+            RT_AVAILABLE_CLANG_CUDA_SDK_CXX.
+    """
+    if RT_AVAILABLE_CLANG_CUDA_SDK_CXX not in runtime_infos:
+        return
+
+    nvcc_cxx_support_sorted = sorted(version_relation.get_nvcc_cxx_support_version(), reverse=True)
+
+    def is_supported_by_nvcc(cuda_sdk_ver: ValueVersion, cxx_ver: ValueVersion) -> bool:
+        for nvcc_cxx in nvcc_cxx_support_sorted:
+            if cuda_sdk_ver >= nvcc_cxx.compiler:
+                return cxx_ver <= nvcc_cxx.cxx
+        return cxx_ver <= nvcc_cxx_support_sorted[-1].cxx
+
+    def filter_function(param_val_pair: ParameterValuePair) -> bool:
+        for cuda_param_val, cxx_param_val in (
+            (param_val_pair.first, param_val_pair.second),
+            (param_val_pair.second, param_val_pair.first),
+        ):
+            if (
+                cuda_param_val.parameter == ALPAKA_ACC_GPU_CUDA_ENABLE
+                and cxx_param_val.parameter == CXX_STANDARD
+                and cuda_param_val.parameterValue.version != OFF_VER
+            ):
+                cuda_sdk_ver = cuda_param_val.parameterValue.version
+                cxx_ver = cxx_param_val.parameterValue.version
+                if not is_supported_by_nvcc(cuda_sdk_ver, cxx_ver) and not runtime_infos[
+                    RT_AVAILABLE_CLANG_CUDA_SDK_CXX
+                ](cuda_sdk_ver, cxx_ver):
+                    return False
+        return True
+
+    bi_filter(parameter_value_pairs, removed_parameter_value_pairs, filter_function)

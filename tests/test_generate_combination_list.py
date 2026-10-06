@@ -7,6 +7,7 @@ from collections import OrderedDict
 from typing import Dict, Callable, IO
 import packaging.version as pkv
 from utils_test import parse_param_vals
+from bashi.version import VERSIONS
 from bashi.version.utils import get_parameter_value_matrix
 from bashi.version.relation import VersionRelation
 from bashi.generator import generate_combination_list, get_runtime_infos
@@ -222,6 +223,32 @@ class TestGeneratorTestData(unittest.TestCase):
 # set the environment variable NOLONG to skip long running tests
 @unittest.skipIf("NOLONG" in os.environ, "Skip long running test")
 class TestGeneratorRealData(unittest.TestCase):
+    def test_generator_old_clang_cuda_versions(self):
+        # Clang-CUDA 16 does not support C++23 and Nvcc does not support C++23. Therefore the
+        # generator must not try to combine C++23 with an enabled CUDA backend.
+        versions = copy.deepcopy(VERSIONS)
+        versions[CLANG] = [14, 15, 16]
+        versions[CLANG_CUDA] = [14, 15, 16]
+        param_val_matrix = get_parameter_value_matrix(versions)
+        version_relation = VersionRelation()
+        runtime_info = get_runtime_infos(param_val_matrix, version_relation)
+        expected_param_val_pairs, unexpected_param_val_pairs = (
+            get_expected_bashi_parameter_value_pairs(
+                param_val_matrix, version_relation, runtime_info
+            )
+        )
+
+        comb_list = generate_combination_list(param_val_matrix, version_relation, runtime_info)
+
+        self.assertTrue(
+            check_parameter_value_pair_in_combination_list(comb_list, expected_param_val_pairs)
+        )
+        self.assertTrue(
+            check_unexpected_parameter_value_pair_in_combination_list(
+                comb_list, unexpected_param_val_pairs
+            )
+        )
+
     def test_get_expected_bashi_parameter_value_pairs_numbers(self):
         # get_expected_bashi_parameter_value_pairs() returns two list, expected and unexpected
         # parameter-value-pairs. As input, it use a list of all possible parameter-value-pairs

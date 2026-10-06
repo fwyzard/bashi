@@ -484,6 +484,22 @@ class CompilerFilter(FilterBase):
                                 f"Clang-CUDA compiler which support this.",
                             )
                             return False
+                        # The Clang-CUDA versions in the parameter-value-matrix can be older than
+                        # the latest known Clang-CUDA version. In this case, there is no
+                        # Clang-CUDA version, which can be used for the combination.
+                        if RT_AVAILABLE_CLANG_CUDA_SDK_CXX in self.runtime_infos and not (
+                            self.runtime_infos[RT_AVAILABLE_CLANG_CUDA_SDK_CXX](
+                                row[ALPAKA_ACC_GPU_CUDA_ENABLE].version,
+                                row[CXX_STANDARD].version,
+                            )
+                        ):
+                            self.reason(
+                                f"For the potential combination of C++-{row[CXX_STANDARD].version} "
+                                f"+ CUDA {row[ALPAKA_ACC_GPU_CUDA_ENABLE].version} there is no "
+                                f"Clang-CUDA compiler in the parameter-value-matrix which support "
+                                f"this.",
+                            )
+                            return False
                     # Rule: c24
                     # If we know that the CUDA backend is enabled and the host compiler is GCC or
                     # Clang, the device compiler must be Nvcc.
